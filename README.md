@@ -2,7 +2,7 @@ This script will help you to build the binary or source DEB packages.
 
 Usage: 
 =====
-makeDeb.sh [options] <path-to-source-tar-file> <debian-directory>
+makeDeb.sh [options] path-to-source-tar-file debian-directory
 
 Options:
 -------
