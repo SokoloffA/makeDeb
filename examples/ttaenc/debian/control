@@ -1,0 +1,15 @@
+Source: ttaenc
+Section: sound
+Priority: extra
+Maintainer: Alexander Sokolov <sokoloff.a@gmail.com>
+Build-Depends: debhelper (>= 7)
+Standards-Version: 3.8.4
+Homepage: http://tta.sourceforge.net
+
+Package: ttaenc
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Recommends:
+Description: TrueAudio (TTA) Codec - command line tool
+ TrueAudio lossless compressor for multichannel 8,16 and 24 bits audio data.
+

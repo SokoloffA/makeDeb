@@ -21,7 +21,7 @@ VERSION=3.1.1
 # Distributive name (Debian or Ubuntu)
 DISTRIB=Ubuntu
 
-# RElease number
+# Release number
 RELEASENUM=1
 
 # Realese name, separated by space

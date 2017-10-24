@@ -1,0 +1,23 @@
+Index: ttaenc-3.4.1/Makefile
+===================================================================
+--- ttaenc-3.4.1.orig/Makefile
++++ ttaenc-3.4.1/Makefile
+@@ -5,7 +5,8 @@
+ CFLAGS	= -Wall -O3 -fomit-frame-pointer -funroll-loops \
+ 		  -fforce-addr -falign-functions=4 -msse
+ TTAENC	= ttaenc
+-INSDIR	= /usr/bin
++DESTDIR	=
++INSDIR	= $(DESTDIR)/usr/bin
+ 
+ ttaenc: $(patsubst %.c, %.o, $(wildcard *.c))
+ 	gcc $^ -o $@ $(CFLAGS)
+@@ -14,7 +15,7 @@ ttaenc: $(patsubst %.c, %.o, $(wildcard
+ 	gcc -c $(CFLAGS) $<
+ 
+ install:
+-	[ -d "$(INSDIR)" ] || mkdir $(INSDIR)
++	install -d $(INSDIR)
+ 	if [ -n "$(TTAENC)" ]; then \
+ 		strip $(TTAENC) ; \
+ 		install -m 755 $(TTAENC) $(INSDIR) ; \
