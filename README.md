@@ -1,18 +1,18 @@
 This script will help you to build the binary or source DEB packages based on SPEC file.
 
 Usage:
-=====
+-------
 ```makeDeb [options] <spec-file>```
 
-Options:
--------
-  -h|--help             display this message
-  -o|--outdirt=DIR      write result to DIR, home directory by default
-  -V|--version          Print program version
+**Options:**
+
+- **-h or --help** -             display this message  
+- **-o or --outdirt=DIR** -      write result to DIR, home directory by default  
+- **-V or --version** -          Print program version  
 
 
 SPEC file example
-=================
+------------------
 ```bash
 # Name and version of the program
 PROGRAM=flacon
