@@ -23,9 +23,10 @@
 # Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301 USA
 #
-# END_COMMON_COPYRIGHT_HEADER 
- 
-SCRIPT_VERSION="0.1.0"
+# END_COMMON_COPYRIGHT_HEADER
+
+SCRIPT_VERSION="0.6.0"
+
 
 function version {
     echo "makeDeb $SCRIPT_VERSION"
@@ -34,28 +35,27 @@ function version {
 
 function help {
   cat << HELP_TEXT
-Usage: makeDeb.sh [options] <path-to-source-tar-file> <debian-directory>
+Usage: makeDeb.sh [options] <spec-file>
 
 Options
   -h|--help             display this message
   -o|--outdirt=DIR      write result to DIR, home directory by default
-  -r|--release=RELEASE  release name (sid, squeeze, testing, maveric, natty etc.), autodetect if ommited
-  -d|--distrib=DISTRIB  distib type (Debian or Ubuntu), autodetect if ommited
-  --ver=VERSION         package version
-  -S|--sign             sign a result files
-  -s|--source           build a source package, if omitted build a binary package
-  --debug               debug mode, not build package - only create debian directory
   -V|--version          Print program version
 HELP_TEXT
 }
 
-
-
 VARIABLES=""
+
+
+function error()
+{
+    echo $1 >&2
+    exit 1
+}
 
 function debug
 {
-    [ -n "$DEBUG" ] && echo $@ >&2
+    [ -z "${DEBUG}" ] && echo "$@" >&2
 }
 
 function setVariable
@@ -98,7 +98,7 @@ function checkIf
             ;;
 
         *)
-            val=`getVariable ${name}`
+            val=`getVariable ${PROGRAM}`
             ;;
     esac
 
@@ -128,9 +128,10 @@ function nextToken
 
             *)
                 echo "$line" | sed            \
-                    -e"s/%NAME%/${NAME}/g"    \
-                    -e"s/%VERSION%/${VER}/g"  \
+                    -e"s/%NAME%/${PROGRAM}/g"    \
+                    -e"s/%VERSION%/${VERSION}/g"  \
                     -e"s/%RELEASE%/${RELEASE}/g" \
+                    -e"s/%RELEASENUM%/${RELEASENUM}/g" \
                     -e"s/%DISTRIB%/${DISTRIB}/g" \
                     -e"s/%DATE%/${DATE}/g" \
                     -e"s/%DEBEMAIL%/${DEBEMAIL}/g" \
@@ -226,10 +227,7 @@ function prepareFile
 }
 
 
-TYPE='-b'
-SIGN='-uc -us'
-ARG1=""
-ARG2=""
+SPEC=""
 
 while [ $# -gt 0 ]; do
   case $1 in
@@ -246,104 +244,59 @@ while [ $# -gt 0 ]; do
         shift 2
       ;;
 
-    -r|--release)
-        RELEASE=$2
-        shift 2
-      ;;
-
-    -d|--distrib)
-        DISTRIB=$2
-        shift 2
-      ;;
-
-    --ver)
-        VER=$2
-        shift 2
-      ;;
-
-    -s|--source)
-        TYPE='-S'
-        shift
-      ;;
-
-    -S|--sign)
-        SIGN=''
-        shift
-      ;;
-
-    --debug)
-        DEBUG=1
-        shift
-      ;;
-
-    --)
-        shift
-        break
-      ;;
 
     *)
-        ARG1=${ARG2}
-        ARG2=$1
+        SPEC=$1
         shift
       ;;
 
   esac
 done
 
-if [ -f "${ARG1}" ]; then SRC=${ARG1}; fi
-if [ -f "${ARG2}" ]; then SRC=${ARG2}; fi
-if [ -d "${ARG1}" ]; then DEB_DIR=${ARG1}; fi
-if [ -d "${ARG2}" ]; then DEB_DIR=${ARG2}; fi
+# Default values --------------------------------
+DEB_DIR='debian'
+TYPE="source"
+SIGN=yes
+OUT_DIR="./OUT"
+RELEASENUM=1
 
-
-if [ -z "${SRC}" ]; then
-    echo "missing path-to-source operand" >&2
-    help
-    exit 2
-fi
-
-if [ -z "${DEB_DIR}" ]; then
-    echo "missing path to debian directory option" >&2
-    help
-    exit 2
-fi
-
-SRC=`readlink -m ${SRC}`
-
-if [ -z "${RELEASE}" ]; then
-    RELEASE=`awk -F"=" '/DISTRIB_CODENAME=/ {print($2)}' /etc/lsb?release`
-fi
-
-if [ -z "${RELEASE}" ]; then
-    echo "missing release option"
-    help
-    exit 2
+# Read spec file  -------------------------------
+if [ -z "${SPEC}" ]; then
+    ls *.spec 2>/dev/null  || error "I can't find .spec file"
+    . *.spec 2>/dev/null   || error "I can't load .spec file"
+else
+    ls ${SPEC} 2>/dev/null || error "I can't find .spec file"
+    . ${SPEC} 2>/dev/null  || error "I can't load .spec file"
 fi
 
 
-if [ -z "${DISTRIB}" ]; then
-    DISTRIB=`awk -F"=" '/DISTRIB_ID=/ {print($2)}' /etc/lsb?release`
-fi
+# Checks ----------------------------------------
+DEB_DIR_PATH=$(realpath ${DEB_DIR})
+[ -d "${DEB_DIR_PATH}"  ] || error "I can't find debian directory (${DEB_DIR_PATH})!"
 
-if [ -z "${DISTRIB}" ]; then
-    echo "missing distrib option"
-    help
-    exit 2
-fi
+[ "${SIGN}" = "no" ] && sign_arg="-uc -us"
 
-NAME=$(basename "${SRC}" | awk -F '[-]' '{print($1)}')
 
-if [ -z "$VER" ]; then
-    MAJOR_VER=$(echo "${SRC}" | awk -F '[-_]' '{print($2)}' | awk -F '.' '{print($1)}')
-    MINOR_VER=$(echo "${SRC}" | awk -F '[-_]' '{print($2)}' | awk -F '.' '{print($2)}')
-    PATCH_VER=$(echo "${SRC}" | awk -F '[-_]' '{print($2)}' | awk -F '.' '{print($3)}')
+case ${TYPE} in
+    b*)
+        type_arg=""
+        ;;
 
-    VER="${MAJOR_VER}.${MINOR_VER}.${PATCH_VER}"
-fi
+    s*)
+        type_arg="-S"
+        ;;
 
-if [ -z "$OUT_DIR" ]; then
-    OUT_DIR="${HOME}/${NAME}_${VER}_deb"
-fi
+    d*)
+        type_arg=""
+        ;;
+esac
+
+
+
+TAR_FILE="${PROGRAM}-${VERSION}.tar.gz"
+TAR_FILE_PATH=$(realpath ${TAR_FILE})
+[ -f "${TAR_FILE_PATH}" ] || error "I'cant find tar file '${TAR_FILE_PATH}'!"
+
 
 if [ -z "$DEBEMAIL" ]; then
   DEBEMAIL=${EMAIL}
@@ -353,17 +306,18 @@ if [ -n "$DEBUG" ]; then
   TYPE="Debug"
 fi
 
+
+
+DEB_DIR=`readlink -m ${DEB_DIR}`
 echo "*******************************"
-echo " Source:     ${SRC}"
+echo " Tar file:   ${TAR_FILE}"
 echo " Debian dir: ${DEB_DIR}"
 echo ""
-echo " Name:    ${NAME}"
-echo " Ver:     ${VER}"
-[ "${TYPE}" = "-b"    ] && echo " Type:    binary"
-[ "${TYPE}" = "-S"    ] && echo " Type:    source"
-[ "${TYPE}" = "Debug" ] && echo " Type:    debug"
+echo " Name:    ${PROGRAM}"
+echo " Ver:     ${VERSION}"
+echo " Type:    ${TYPE}"
 echo " Distrib: ${DISTRIB}"
-echo " Release: ${RELEASE}"
+echo " Release: ${RELEASES}"
 echo " Out dir: ${OUT_DIR}"
 
 echo "*******************************"
@@ -372,35 +326,47 @@ echo "*******************************"
 OUT_DIR=`readlink -m ${OUT_DIR}`
 mkdir -p ${OUT_DIR} || exit 2
 
-DIR=${OUT_DIR}/${NAME}-${VER}
+DIR=${OUT_DIR}/${PROGRAM}-${VERSION}
 rm -rf ${DIR}
 
 
 if [ -z "$DEBUG" ]; then
-    cp "${SRC}" ${OUT_DIR}/${NAME}_${VER}.orig.tar.bz2
-    cd ${OUT_DIR} && tar xvf ${NAME}_${VER}.orig.tar.bz2 ${NAME}-${VER}
+    cp "${TAR_FILE}" ${OUT_DIR}/${PROGRAM}_${VERSION}.orig.tar.gz || error
+    mkdir "${OUT_DIR}/${PROGRAM}-${VERSION}"
+    tar xf ${TAR_FILE} --directory="${OUT_DIR}/${PROGRAM}-${VERSION}" --strip 1 || error
 fi
 
+eval $(gpg-agent --daemon)
 
-for RELEASE in ${RELEASE}; do
+for RELEASE in ${RELEASES}; do
     # Debin directory .....................
-    rm -r ${DIR}/debian 2>/dev/null
+    [ -d ${DIR}/debian ] && rm -r ${DIR}/debian
     mkdir -p ${DIR}/debian
-    mkdir -p ${DIR}/debian/source
     DATE=`date -R`
 
     clearVariables
+
     prepareFile ${DEB_DIR}/control > ${DIR}/debian/control
 
     for src in `find ${DEB_DIR} -type f \! -name "control"`; do
         dest=$(echo $src | sed -e"s|${DEB_DIR}|${DIR}/debian|")
+        mkdir -p $(dirname "${dest}")
         prepareFile "${src}" > ${dest}
         chmod --reference "${src}" ${dest}
     done
     # Debin directory .....................
 
+    # Apply patches .......................
+    if [ -f "${DIR}/debian/patches/series" ]; then
+    	export QUILT_PATCHES=debian/patches
+    	cd ${DIR} && quilt push -a || exit 2
+    	[ -d "${DIR}" ] && rm -rf ${DIR}/.pc
+	fi    	
+    # Apply patches .......................
+
+
     if [ -z "$DEBUG" ]; then
-      cd ${DIR} && debuild ${TYPE} ${SIGN} -rfakeroot
+      cd ${DIR} && debuild ${type_arg} ${sign_arg} -rfakeroot
       ret=$?
       [ $ret -eq 0 ] || exit $ret
     else
@@ -408,7 +374,8 @@ for RELEASE in ${RELEASE}; do
     fi
 done
 
-if [ "${TYPE}" = '-b' ]; then
+
+if [ "${type_arg}" = '-b' ]; then
     echo "................................."
     echo "Check files:"
     PKGS=`awk '/Package:/ {print $2}' ${DIR}/debian/control`
@@ -435,4 +402,7 @@ if [ "${TYPE}" = '-b' ]; then
 
     done
 fi
+
+echo "dput ppa:${PPA}/ppa *_source.changes" > ${OUT_DIR}/send.sh
+chmod a+x ${OUT_DIR}/send.sh
 
