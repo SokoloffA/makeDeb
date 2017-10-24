@@ -7,7 +7,7 @@ Usage:
 **Options:**
 
 - **-h or --help** -             display this message  
-- **-o or --outdirt=DIR** -      write result to DIR, home directory by default  
+- **-o or --outdirt=DIR** -      write result to DIR, ./OUT directory by default  
 - **-V or --version** -          Print program version  
 
 
